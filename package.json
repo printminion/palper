@@ -1,0 +1,12 @@
+{
+  "name": "parshipper",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+      "htmlparser2": "*",
+      "fs": "*",
+      "forevery": "*",
+      "async": "*",
+      "sleep": "*"
+  }
+}
