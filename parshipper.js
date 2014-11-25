@@ -15,13 +15,14 @@ require('forevery');
 var COOKIE = 'SET_YOUR_PARSHIP_COOKIE_HERE';
 
 //Set pages to crawl
-var pagesCount = 92;
+var pagesCount = 90;
 
 
 //get suggestions
 //https://www.parship.de/lists/partnersuggestions
 
 var pageNr = 0;
+
 async.whilst(
     function () { return pageNr < pagesCount; },
     function (callback) {
@@ -34,7 +35,13 @@ async.whilst(
                 console.log('parsed ' + data.length + ' profiles');
                 sleep.sleep(1);
                 callback();
-            })
+            });
+
+            releaseImages(profileIds, function(data) {
+                console.log('releaseImages ' + data.length + ' profiles');
+                sleep.sleep(1);
+                callback();
+            });
         });
     },
     function (err) {
@@ -42,6 +49,23 @@ async.whilst(
         console.log('done');
     }
 );
+
+
+function releaseImages(profileIds, callback) {
+    profileIds.forEvery(function (key, value) {
+        console.log('profile', value);
+        var url = value.split('?match=');
+        var profileId = url[1];
+        console.log('profileId', profileId);
+
+        releaseImage(profileId, function (data) {
+            console.log('releaseImage:', data.resultView.partnerChiffre, data.resultView.success);
+        });
+
+    }).done(function(data) {
+        callback(data);
+    })
+}
 
 
 function parseProfiles(profileIds, callback) {
@@ -103,11 +127,47 @@ Array.prototype.getUnique = function(){
     return a;
 };
 
+
+function releaseImage(pageId, callback) {
+    console.log('releaseImage', pageId);
+
+    request
+        .post('https://www.parship.de/profile/imagerelease/release')
+        .send({ partnerId: pageId, body: '' })
+        .set('Accept-Encoding', 'gzip,deflate,sdch')
+        .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')
+        .set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36')
+        .set('Accept', 'text/javascript, text/html, application/xml, text/xml, */*')
+        .set('Referer', 'https://www.parship.de/partner/factfilepartner?match=' + pageId)
+
+        .set('Cookie', COOKIE)
+        .end(function(err, res) {
+            if (err) {
+                throw err;
+            }
+
+            var response = {};
+            try {
+                response = JSON.parse(res.text);
+            } catch (e) {
+                throw 'no profiles found';
+            }
+
+            //console.log(response);
+
+            if(response.resultView.errorCode) {
+                callback(response);
+            } else {
+                throw 'no profile found. pageId:' + pageId;
+            }
+        });
+}
+
 function crawlProfilePage(pageId, callback) {
     console.log('crawlProfilePage', pageId);
 
     request
-        .get("https://www.parship.de/lists/partnersuggestions?sortBy=BY_DISTANCE&page=" + pageId)
+        .get("https://www.parship.de/lists/partnersuggestions?sortBy=BY_NEWEST_FIRST&page=" + pageId)
         .set('Accept-Encoding', 'gzip,deflate,sdch')
         .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')
         .set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36')
@@ -136,7 +196,7 @@ function crawlProfilePage(pageId, callback) {
             if(matches) {
                 callback(matches.getUnique());
             } else {
-                throw 'no profiles found';
+                throw 'no profiles found. Page:' + pageId + ' Url: https://www.parship.de/lists/partnersuggestions?sortBy=BY_NEWEST_FIRST&page=' + pageId;
             }
         });
 }
