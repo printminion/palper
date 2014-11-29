@@ -24,6 +24,19 @@ d.on('error', function (err) {
     console.error(err);
 });
 
+var args = process.argv.slice(2);
+
+if (args.length == 0) {
+
+    console.log('Usage: node parshipper.js <params>');
+    console.log('');
+    console.log('Params:');
+    console.log('   getnew <pagesCount:1>');
+    console.log('   resync <useCache:true>');
+    console.log('   parse <profileId>');
+
+    process.exit(1);
+}
 
 // First consider commandline arguments and environment variables, respectively.
 nconf.argv().env();
@@ -49,27 +62,27 @@ if (!SESSION_COOKIE) {
     process.exit(1);
 }
 
-//Set pages to crawl
-var pagesCount = 1;
 
+if (args[0] == 'getnew' && args[1]) {
+    parseNewProfiles(args[1]);
+}
 
-//get suggestions
-//https://www.parship.de/lists/partnersuggestions
+if (args[0] == 'resync' && args[1]) {
+    resyncProfles(args[1]);
+}
 
-var pageNr = 0;
+if (args[0] == 'parse' && args[1]) {
 
+    parseProfile(args[1], false, function (profile) {
+        console.log('parseProfile:callback', profile);
 
-//parseNewProfiles();
+    });
 
-//resyncProfles(false);
+}
 
-parseProfile('xxx', false, function (profile) {
-    console.log('parseProfile:callback', profile);
-
-});
-
-
-function parseNewProfiles() {
+function parseNewProfiles(pagesCount) {
+    //var pagesCount = 1;
+    var pageNr = 0;
 
     async.whilst(
         function () {
@@ -201,7 +214,11 @@ function parseProfiles(profileIds, callback) {
             if (exists) {
                 console.info('skip profile:' + profileId);
             } else {
-                parseProfile(profileId, false, onParseProfileSuccess);
+                parseProfile(profileId, false, function(profile) {
+                    onParseProfileSuccess(profile, function(){
+                        console.log('onParseProfileSuccess:callback');
+                    })
+                });
             }
         })
     }).done(function (data) {
