@@ -1,0 +1,9 @@
+{
+  "session": {
+    "cookie": null
+  },
+  "path": {
+    "profileCache": "./.cache",
+    "htmlCache": "./.cacheHtml"
+  }
+}

@@ -2,26 +2,70 @@
  * Created by cr on 15/11/14.
  */
 
+var profileParser = require("./parser.js");
+
 var request = require('superagent')
    // , TimeQueue = require('timequeue')
-    , htmlparser = require("htmlparser2")
     , fs = require('fs')
     , async = require('async')
-    , sleep = require('sleep');
+    , sleep = require('sleep')
+    , process = require('process')
+    , domain = require('domain')
+    , nconf = require('nconf');
 
 require('forevery');
 
+
+d = domain.create();
+
+d.on('error', function(err) {
+    console.error(err);
+});
+
+
+// First consider commandline arguments and environment variables, respectively.
+nconf.argv().env();
+
+// Then load configuration from a designated file.
+nconf.file({ file: 'config.json' });
+
+// Provide default values for settings not provided above.
+nconf.defaults({
+    'session': {
+        'cookie': undefined
+    }
+});
+
 //SET yOUR parship cookie here
-var COOKIE = 'SET_YOUR_PARSHIP_COOKIE_HERE';
+var SESSION_COOKIE = nconf.get('session:cookie');
+var PATH_CACHE = nconf.get('path:profileCache');
+var PATH_CACHE_HTML = nconf.get('path:htmlCache');
+
+if (!SESSION_COOKIE) {
+    process.stderr.write('SESSION_COOKIE is empty. Please define it in config.json\n');
+    process.exit(1);
+}
 
 //Set pages to crawl
-var pagesCount = 90;
+var pagesCount = 1;
 
 
 //get suggestions
 //https://www.parship.de/lists/partnersuggestions
 
 var pageNr = 0;
+
+
+parseNewProfiles();
+
+//resyncProfles(false);
+
+//parseProfile('XXXX', true, function(data) {
+//    console.log('parseProfile', data);
+//});
+
+
+function parseNewProfiles() {
 
 async.whilst(
     function () { return pageNr < pagesCount; },
@@ -35,13 +79,16 @@ async.whilst(
                 console.log('parsed ' + data.length + ' profiles');
                 sleep.sleep(1);
                 callback();
+
+                //releaseImages(profileIds, function(data) {
+                //    console.log('releaseImages ' + data.length + ' profiles');
+                //    sleep.sleep(1);
+                //    callback();
+                //});
+
             });
 
-            releaseImages(profileIds, function(data) {
-                console.log('releaseImages ' + data.length + ' profiles');
-                sleep.sleep(1);
-                callback();
-            });
+
         });
     },
     function (err) {
@@ -49,7 +96,64 @@ async.whilst(
         console.log('done');
     }
 );
+}
 
+
+
+function resyncProfles(useCache) {
+    fs.readdir(PATH_CACHE + '/', function(err, files) {
+        if (err) {
+            throw err;
+        }
+
+
+        var filesCount = files.length;
+        var fileNr = 0;
+        console.log('got ' + files.length + ' profiles');
+
+        async.whilst(
+            function () { return fileNr < filesCount; },
+            function (callback) {
+                fileNr++;
+                //setTimeout(callback, 1000);
+                console.log(fileNr + '/' + filesCount);
+
+                if (!files.hasOwnProperty(fileNr)) {
+                    callback();
+                }
+
+                var file = files[fileNr];
+
+                if (file.substr(-5) == '.json') {
+                    sleep.sleep(1);
+                    //console.log(file, file.substr(-5), file.substr(0, file.length - 5));
+                    parseProfile(file.substr(0, file.length - 5), useCache, function(profile) {
+
+                        if (profile == null) {
+                            console.log(' - skip');
+                            callback();
+                            return;
+                        }
+                        onParseProfileSuccess(profile, function() {
+                            console.log('onParseProfileSuccess');
+                            callback();
+                        });
+                    });
+
+                    //break;
+                } else {
+                    callback();
+                }
+            },
+            function (err) {
+                // 5 seconds have passed
+                console.log('done');
+            });
+
+
+
+    });
+}
 
 function releaseImages(profileIds, callback) {
     profileIds.forEvery(function (key, value) {
@@ -58,9 +162,17 @@ function releaseImages(profileIds, callback) {
         var profileId = url[1];
         console.log('profileId', profileId);
 
-        releaseImage(profileId, function (data) {
-            console.log('releaseImage:', data.resultView.partnerChiffre, data.resultView.success);
-        });
+        try {
+            releaseImage(profileId, function (data) {
+                if (data.hasOwnProperty('resultView')) {
+                    console.log('releaseImage:', data.resultView.partnerChiffre, data.resultView.success);
+                } else {
+                    console.error('releaseImage:', profileId, false);
+                }
+            });
+        } catch(e) {
+            console.error('releaseImage:', profileId, false);
+        }
 
     }).done(function(data) {
         callback(data);
@@ -77,17 +189,13 @@ function parseProfiles(profileIds, callback) {
         var profileId = url[1];
         console.log('profileId', profileId);
 
-        var outputFilename = './cache/' + profileId + '.json';
+        var outputFilename = PATH_CACHE + '/' + profileId + '.json';
 
         fs.exists(outputFilename, function(exists) {
             if (exists) {
                 console.info('skip profile:' + profileId);
             } else {
-                parseProfile(profileId, function(profile) {
-                    saveProfile(profile, function(){
-                        //saved
-                    });
-                });
+                parseProfile(profileId, false, onParseProfileSuccess);
             }
         })
     }).done(function(data) {
@@ -95,13 +203,52 @@ function parseProfiles(profileIds, callback) {
     })
 }
 
-//parseProfile('PS53575D', saveProfile);
-//parseProfile('KKL6KP76', saveProfile);
+function onParseProfileSuccess(profile, callback) {
+    console.log('onParseProfileSuccess');
+    var profileId = profile.id;
+    saveProfile(profile, function(){
+        //saved
+
+        if (profile.options.sharedImages) {
+            console.error('releaseImage:', profileId, 'already shared');
+            callback();
+        } else {
+            //releaseImage after save
+            releaseImage(profileId, function (data) {
+                if (data.hasOwnProperty('resultView')) {
+                    console.log('releaseImage:', data.resultView.partnerChiffre, data.resultView.success);
+                } else {
+                    console.error('releaseImage:', profileId, false);
+                }
+                callback();
+            });
+        }
+
+
+    });
+}
+
+function saveProfileHTML(profileId, html, callback) {
+    console.log('saveProfileHTML', profileId);
+
+    var outputFilename = PATH_CACHE_HTML + '/' + profileId + '.html';
+
+    fs.writeFile(outputFilename, html, function(err) {
+        if(err) {
+            console.log(err);
+            callback();
+        } else {
+            //console.log("JSON saved to " + outputFilename);
+            callback();
+        }
+    });
+
+}
 
 function saveProfile(profile, callback) {
-    console.log('profile', profile);
+    console.log('saveProfile', profile);
 
-    var outputFilename = './cache/' + profile.id + '.json';
+    var outputFilename = PATH_CACHE + '/' + profile.id + '.json';
 
     fs.writeFile(outputFilename, JSON.stringify(profile, null, 4), function(err) {
         if(err) {
@@ -110,6 +257,23 @@ function saveProfile(profile, callback) {
         } else {
             //console.log("JSON saved to " + outputFilename);
             callback();
+        }
+    });
+
+}
+
+function loadProfileHtml(profileId, callbackSuccess, callbackFailure) {
+    console.log('loadProfileHtml', profileId);
+
+    var outputFilename = PATH_CACHE_HTML + '/' + profileId + '.html';
+
+    fs.readFile(outputFilename, function(err, data) {
+        if(err) {
+            console.log(err);
+            callbackFailure();
+        } else {
+            //console.log("JSON saved to " + outputFilename);
+            callbackSuccess(data);
         }
     });
 
@@ -140,16 +304,24 @@ function releaseImage(pageId, callback) {
         .set('Accept', 'text/javascript, text/html, application/xml, text/xml, */*')
         .set('Referer', 'https://www.parship.de/partner/factfilepartner?match=' + pageId)
 
-        .set('Cookie', COOKIE)
+        .set('Cookie', SESSION_COOKIE)
         .end(function(err, res) {
             if (err) {
-                throw err;
+                //throw err;
+                console.error(err);
+                callback(response);
+                return false;
             }
 
+            if (res.text == '') {
+                console.error('no profiles found', res);
+                throw 'no profiles found';
+            }
             var response = {};
             try {
                 response = JSON.parse(res.text);
             } catch (e) {
+                console.error('no profiles found', response);
                 throw 'no profiles found';
             }
 
@@ -174,7 +346,7 @@ function crawlProfilePage(pageId, callback) {
         .set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8')
         .set('Referer', 'https://www.parship.de/lists/partnersuggestions?sortBy=BY_DISTANCE')
 
-        .set('Cookie', COOKIE)
+        .set('Cookie', SESSION_COOKIE)
         .end(function(err, res) {
             if (err) {
                 throw err;
@@ -202,9 +374,42 @@ function crawlProfilePage(pageId, callback) {
 }
 
 
-function parseProfile(profileId, callback) {
+function parseProfile(profileId, useCache, callback) {
     console.log('parseProfile', profileId);
 
+try {
+
+
+    if (useCache) {
+        loadProfileHtml(profileId,
+            function (html) {
+                var profile = profileParser.parse(profileId, html);
+                callback(profile);
+            }, function () {
+                loadRemoteProfile(profileId, function (html) {
+                    saveProfileHTML(profileId, html, function () {
+                        var profile = profileParser.parse(profileId, html);
+                        callback(profile);
+                    });
+                });
+            });
+    } else {
+
+        loadRemoteProfile(profileId,
+            function (html) {
+                saveProfileHTML(profileId, html, function () {
+                    var profile = profileParser.parse(profileId, html);
+                    callback(profile);
+                });
+            });
+    }
+} catch (e) {
+    callback(null);
+}
+
+}
+
+function loadRemoteProfile(profileId, callbackSuccess) {
     request
         .get("https://www.parship.de/partner/factfilepartner?match=" + profileId)
         .set('Accept-Encoding', 'gzip,deflate,sdch')
@@ -213,8 +418,8 @@ function parseProfile(profileId, callback) {
         .set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8')
         .set('Referer', 'https://www.parship.de/lists/partnersuggestions?sortBy=BY_DISTANCE')
 
-        .set('Cookie', COOKIE)
-        .end(function(err, res) {
+        .set('Cookie', SESSION_COOKIE)
+        .end(function (err, res) {
             if (err) {
                 console.error(err);
                 throw err;
@@ -225,270 +430,7 @@ function parseProfile(profileId, callback) {
                 if (err) throw 'logged of';
             }
 
-            var profile = {
-              id: profileId
-                , occupation: undefined
-                , age: undefined
-                , distance: undefined
-                , matching: undefined
-                , height: undefined
-                , lastLogin: undefined
-                , language: undefined
-                , education: undefined
-                , pets: undefined
-
-            };
-
-            var nodeValue = undefined;
-
-            var parser = new htmlparser.Parser({
-                onopentag: function(name, attribs){
-                    if (name === "span") {
-
-                        if (attribs.id === "occupation") {
-                            profile.occupation = true;
-                            return true;
-                        }
-
-                        if (attribs.id === "ageText") {
-                            profile.age = true;
-                            return true;
-                        }
-
-                        if (attribs.id === "ps_viewHeight") {
-                            profile.height = true;
-                            return true;
-                        }
-
-                    }
-
-                    if (name === "p") {
-
-                        if (attribs.class === "ps_distanceValue") {
-                            profile.distance = true;
-                            return true;
-                        }
-                        if (attribs.class === "ps_lastLogin") {
-                            profile.lastLogin = true;
-                            return true;
-                        }
-                    }
-
-                    if (name === "div") {
-                        if (attribs.class === "displayMP hero" && profile.matching === undefined) {
-                            profile.matching = true;
-                            return true;
-                        }
-
-                        if (attribs.id === "language_code") {
-                            profile.language = true;
-                            return true;
-                        }
-
-                        if (attribs.id === "pets") {
-                            profile.pets = true;
-                            return true;
-                        }
-
-                    }
-                },
-                ontext: function(text){
-                    nodeValue = text;
-                },
-                onclosetag: function(tagname){
-                    if(tagname === "span") {
-
-                        if (profile.occupation === true) {
-                            profile.occupation = nodeValue;
-                            nodeValue = undefined;
-                            return true;
-                        }
-
-                        if (profile.age === true) {
-                            profile.age = nodeValue;
-                            nodeValue = undefined;
-                            return true;
-                        }
-
-                        if (profile.height === true) {
-                            profile.height = nodeValue;
-                            nodeValue = undefined;
-                            return true;
-                        }
-
-                    }
-
-                    if(tagname === "p") {
-
-                        if (profile.distance === true) {
-                            profile.distance = nodeValue;
-                            nodeValue = undefined;
-                            return true;
-                        }
-
-                        if (profile.lastLogin === true) {
-                            profile.lastLogin = nodeValue;
-                            nodeValue = undefined;
-                            return true;
-                        }
-                    }
-
-                    if(tagname === "strong") {
-
-                        if (profile.lastLogin === true) {
-                            profile.lastLogin = nodeValue;
-                            nodeValue = undefined;
-                            return true;
-                        }
-                    }
-
-                    if(tagname === "div") {
-
-                        if (profile.matching === true) {
-                            profile.matching = nodeValue;
-                            nodeValue = undefined;
-                            return true;
-                        }
-
-                        if (profile.language === true) {
-                            profile.language = nodeValue;
-                            nodeValue = undefined;
-                            return true;
-                        }
-
-                        if (profile.pets === true) {
-                            profile.pets = nodeValue;
-                            nodeValue = undefined;
-                            return true;
-                        }
-                    }
-                }
-            });
-            parser.write(res.text);
-            parser.end();
-
-
-
-            callback(profile);
+            callbackSuccess(res.text);
 
         });
 }
-
-//
-//function worker(type, arg1, arg2, arg3, callback) {
-//    if(type == "browse") {
-//        if(arg2) {
-//            browsePlaylist(client, arg1, arg2, callback);
-//        } else {
-//            browsePlaylist(client, arg1, null, callback);
-//        }
-//    } else if(type == "video") {
-//        checkVideo(client, arg1, callback);
-//    } else if(type == "shortlink") {
-//        checkShortlink(client, arg1, callback);
-//    }
-//}
-//var q = new TimeQueue(worker, { concurrency: 1, every: 1000 });
-//
-//
-//function crawlProfiles(client) {
-//    for(var i = 0; i < channels.length; i++) {
-//        var channel = channels[i];
-//        var params = {
-//            id: channel,
-//            part: "id,contentDetails"
-//        };
-//        var req = client.youtube.channels.list(params).withApiKey(API_KEY);
-//        req.execute(function(err, response) {
-//
-//            if(!err && response) {
-//                var uploadsList = response.items[0].contentDetails.relatedPlaylists.uploads;
-//                if(uploadsList) {
-//                    q.push("browse", uploadsList);
-//                }
-//            } else {
-//                console.log("crawlProfiles failed");
-//                console.log(err);
-//            }
-//        });
-//    }
-//}
-//
-//function browsePlaylist(client, playlistId, pageToken, callback) {
-//    var params = {
-//        part: "id,contentDetails",
-//        playlistId: playlistId,
-//        maxResults: 50
-//    };
-//
-//    if(pageToken) {
-//        params['pageToken'] = pageToken;
-//    }
-//
-//    var req = client.youtube.playlistItems.list(params).withApiKey(API_KEY);
-//    req.execute(function(err, response) {
-//
-//        if(err) {
-//            console.log("browsePlaylist failed");
-//            console.log(err);
-//        } else {
-//            for(var i = 0; i < response.items.length; i++) {
-//                var videoId = response.items[i].contentDetails.videoId;
-//
-//                q.push("video", videoId);
-//            }
-//
-//            if(response.nextPageToken) {
-//                q.push("browse", playlistId, response.nextPageToken);
-//            }
-//        }
-//        callback();
-//    });
-//}
-//
-//function checkVideo(client, videoId, callback) {
-//    processedVideos++;
-//    if(!checkedVideos[videoId]) {
-//        checkedVideos[videoId] = 1;
-//        request.get("https://www.youtube.com/annotations_invideo?features=1&legacy=1&video_id="+videoId, function(res) {
-//            var regex = /(goo.gl\/[a-zA-Z0-9]{6,})/;
-//            var matches = res.text.match(regex);
-//
-//            if(matches) {
-//                for(var i = 0; i < matches.length; i++) {
-//                    q.push("shortlink", matches[0]);
-//                }
-//            }
-//        });
-//    }
-//    callback();
-//}
-//
-//function checkShortlink(client, shortLink, callback) {
-//    processedShortLinks++;
-//    if(!checkShortlink[shortLink]) {
-//        checkShortlink[shortLink] = 1;
-//
-//        var params = {
-//            shortUrl: "http://"+shortLink,
-//            projection: "ANALYTICS_CLICKS"
-//        };
-//        var req = client.urlshortener.url.get(params).withApiKey(API_KEY);
-//        req.execute(function(err, response) {
-//            if(err) {
-//                console.log("checkShortlink failed");
-//                console.log(err);
-//                delete checkShortlink[shortLink];
-//            } else {
-//                if(response.longUrl.indexOf("redeem") != -1) {
-//                    if(response.analytics.allTime.shortUrlClicks < 5) {
-//                        console.log(response.analytics.allTime.shortUrlClicks + ": "+shortLink + " -> "+ response.longUrl);
-//                    } else {
-//                        console.log("redeem, "+ shortLink + " is stale, views: "+ response.analytics.allTime.shortUrlClicks);
-//                    }
-//                }
-//            }
-//        });
-//    }
-//    callback();
-//}

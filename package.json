@@ -7,6 +7,9 @@
       "fs": "*",
       "forevery": "*",
       "async": "*",
-      "sleep": "*"
+      "sleep": "*",
+      "process": "*",
+      "domain": "*",
+      "nconf": "*"
   }
 }
