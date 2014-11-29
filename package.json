@@ -10,6 +10,9 @@
       "sleep": "*",
       "process": "*",
       "domain": "*",
+      "request": "*",
+      "crypto": "*",
+      "mkdirp": "*",
       "nconf": "*"
   }
 }

@@ -4,12 +4,77 @@
 
 htmlparser = require("htmlparser2");
 
+/**
+ *
+ * @param profile
+ * @param html
+ * @returns {null}
+ */
+exports.parseImages = function (profile, html) {
+    //console.log('parseImages', profile, html);
+    console.log('parseImages');
+
+    html = '' + html;
+
+    if(profile == undefined) {
+        throw 'please provide profile object';
+    }
+
+    if (html.match(/(Kostenlos anmelden)/)) {
+        throw 'Please login';
+    }
+
+    if (html.match(/(Der Kontakt wurde beendet)/)) {
+        //throw 'you are blocked by ' + profileId;
+        console.error('you are blocked by ' + profileId);
+        return null;
+    }
+
+
+
+
+    var parser = new htmlparser.Parser({
+        onopentag: function(name, attribs){
+            if (name === "span") {
+
+                if (attribs.class === "ps_photo ps_photo_popItUp") {
+
+                    //var imageUrl = attribs.style.backgroundImage.slice(4, -1);
+                    var imageUrl = '' + attribs.style;//.slice(4, -1);
+                    imageUrl = imageUrl.replace('background-image: url(','').replace(');','');
+                    console.log('imageUrl', imageUrl);
+
+                    if (imageUrl.match(/unblurred/)) {
+                        profile.images.push(imageUrl);
+                    }
+
+                    return true;
+                }
+
+            }
+
+        },
+        ontext: function(text){
+        },
+        onclosetag: function(tagname){
+
+        }
+    });
+    parser.write(html);
+    parser.end();
+
+
+    return profile;
+
+
+};
+
 exports.parse = function(profileId, profileHTML) {
 
     profileHTML = '' + profileHTML;
 
     if (profileHTML.match(/(Kostenlos anmelden)/)) {
-        throw 'logged of';
+        throw 'Please login';
     }
 
     if (profileHTML.match(/(Der Kontakt wurde beendet)/)) {
@@ -37,6 +102,7 @@ exports.parse = function(profileId, profileHTML) {
         , smoker: undefined
 
         , images: []
+        , imagesPreview: []
 
     };
 
@@ -83,7 +149,7 @@ exports.parse = function(profileId, profileHTML) {
                     var imageUrl = attribs.value;
 
                     if (imageUrl.match(/unblurred/)) {
-                        profile.images.push(imageUrl);
+                        profile.imagesPreview.push(imageUrl);
                     }
 
                     return true;
