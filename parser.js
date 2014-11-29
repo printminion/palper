@@ -29,6 +29,11 @@ exports.parseImages = function (profile, html) {
         console.error('you are blocked by ' + profileId);
         return null;
     }
+    if (html.match(/Dieses Profil ist derzeit nicht aktiv/)) {
+        //throw 'you are blocked by ' + profileId;
+        console.error('not active ' + profileId);
+        return null;
+    }
 
 
 

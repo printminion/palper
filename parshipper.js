@@ -68,7 +68,7 @@ if (args[0] == 'getnew' && args[1]) {
 }
 
 if (args[0] == 'resync' && args[1]) {
-    resyncProfles(args[1]);
+    resyncProfles(args[1] == 'true');
 }
 
 if (args[0] == 'parse' && args[1]) {
@@ -144,20 +144,37 @@ function resyncProfles(useCache) {
 
                 var file = files[fileNr];
 
+                if (file==undefined) {
+                    callback();
+                }
+
                 if (file.substr(-5) == '.json') {
                     sleep.sleep(1);
-                    //console.log(file, file.substr(-5), file.substr(0, file.length - 5));
-                    parseProfile(file.substr(0, file.length - 5), useCache, function (profile) {
+                    var profileId = file.substr(0, file.length - 5);
 
+                    //console.log(file, file.substr(-5), file.substr(0, file.length - 5));
+                    //parseProfile(file.substr(0, file.length - 5), useCache, function (profile) {
+                    //
+                    //    if (profile == null) {
+                    //        console.log(' - skip');
+                    //        callback();
+                    //        return;
+                    //    }
+                    //    onParseProfileSuccess(profile, function () {
+                    //        console.log('onParseProfileSuccess');
+                    //        callback();
+                    //    });
+                    //});
+
+
+                    parseProfile(profileId, useCache, function (profile) {
+                        console.log('parseProfile:callback', profile);
                         if (profile == null) {
-                            console.log(' - skip');
+                            console.log(profileId + ' - skip');
                             callback();
-                            return;
+                        } else {
+                            callback();
                         }
-                        onParseProfileSuccess(profile, function () {
-                            console.log('onParseProfileSuccess');
-                            callback();
-                        });
                     });
 
                     //break;
@@ -537,6 +554,11 @@ function parseProfile(profileId, useCache, callback) {
             function (html) {
 
                 profile = profileParser.parse(profileId, html);
+
+                if(profile == null) {
+                    callback(null);
+                    return;
+                }
 
                 saveProfile(profile, function(){
                     console.log('updated profile');
