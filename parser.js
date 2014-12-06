@@ -4,6 +4,35 @@
 
 htmlparser = require("htmlparser2");
 
+var superagent = require('superagent');
+var agent = superagent.agent();
+var theAccount = {
+    "j_username": "nacho",
+    "j_password": "iamtheluchadore",
+    "persistentLogin": "true"
+};
+
+exports.login = function (request, done) {
+
+    //function(user, pass, callbackSuccess, callbackFailure) {
+        //https://www.parship.de/j_acegi_security_check
+        //j_username
+        //j_password
+        //persistentLogin=true
+
+    console.log('login');
+    request
+        .post('https://www.parship.de/j_acegi_security_check')
+        .send(theAccount)
+        .end(function (err, res) {
+            if (err) {
+                throw err;
+            }
+            agent.saveCookies(res);
+            done(agent);
+        });
+};
+
 /**
  *
  * @param profile
@@ -19,6 +48,11 @@ exports.parseImages = function (profile, html) {
     if(profile == undefined) {
         throw 'please provide profile object';
     }
+
+    if (html.match(/(j_acegi_security_check)/)) {
+        throw 'Please login';
+    }
+
 
     if (html.match(/(Kostenlos anmelden)/)) {
         throw 'Please login';
@@ -82,6 +116,11 @@ exports.parse = function(profileId, profileHTML) {
         throw 'Please login';
     }
 
+    if (profileHTML.match(/j_acegi_security_check/)) {
+        console.info('profileHTML', profileHTML);
+        throw 'Please login';
+    }
+
     if (profileHTML.match(/(Der Kontakt wurde beendet)/)) {
         //throw 'you are blocked by ' + profileId;
         console.error('you are blocked by ' + profileId);
@@ -111,7 +150,7 @@ exports.parse = function(profileId, profileHTML) {
 
     };
 
-    if (profileHTML.match(/(Bilder verbergen)/)) {
+    if (profileHTML.match(/( Bilder verbergen )/)) {
         profile.options.sharedImages = true;
     }
 
@@ -325,3 +364,8 @@ exports.parse = function(profileId, profileHTML) {
 
     return profile;
 };
+
+exports.ping = function(callbackSuccess, callbackFailure) {
+
+};
+

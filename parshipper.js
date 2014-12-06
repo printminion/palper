@@ -20,6 +20,12 @@ require('forevery');
 
 d = domain.create();
 
+/*
+profileParser.login(superagent, function(data){
+    console.log('login', data);
+});
+*/
+
 d.on('error', function (err) {
     console.error(err);
 });
@@ -31,7 +37,7 @@ if (args.length == 0) {
     console.log('Usage: node parshipper.js <params>');
     console.log('');
     console.log('Params:');
-    console.log('   getnew <pagesCount:1>');
+    console.log('   getnew <pagesCount:1> <reparse:true>');
     console.log('   resync <useCache:true>');
     console.log('   parse <profileId>');
 
@@ -63,8 +69,9 @@ if (!SESSION_COOKIE) {
 }
 
 
+
 if (args[0] == 'getnew' && args[1]) {
-    parseNewProfiles(args[1]);
+    parseNewProfiles(args[1], args[2] == 'true');
 }
 
 if (args[0] == 'resync' && args[1]) {
@@ -80,7 +87,7 @@ if (args[0] == 'parse' && args[1]) {
 
 }
 
-function parseNewProfiles(pagesCount) {
+function parseNewProfiles(pagesCount, reparse) {
     //var pagesCount = 1;
     var pageNr = 0;
 
@@ -94,7 +101,7 @@ function parseNewProfiles(pagesCount) {
             console.log(pageNr);
 
             crawlProfilePage(pageNr, function (profileIds) {
-                parseProfiles(profileIds, function (data) {
+                parseProfiles(profileIds, reparse, function (data) {
                     console.log('parsed ' + data.length + ' profiles');
                     sleep.sleep(1);
                     callback();
@@ -216,8 +223,8 @@ function releaseImages(profileIds, callback) {
 }
 
 
-function parseProfiles(profileIds, callback) {
-    console.log('profiles', profileIds);
+function parseProfiles(profileIds, reparse, callback) {
+    console.log('profiles', reparse, profileIds);
 
     profileIds.forEvery(function (key, value) {
         console.log('profile', value);
@@ -227,10 +234,21 @@ function parseProfiles(profileIds, callback) {
 
         var outputFilename = PATH_CACHE + '/' + profileId + '.json';
 
+        var parse = false;
         fs.exists(outputFilename, function (exists) {
             if (exists) {
-                console.info('skip profile:' + profileId);
-            } else {
+                parse = false;
+                if (reparse) {
+                    parse = true;
+                    console.info('reparse profile:' + profileId);
+                } else {
+                    console.info('skip profile:' + profileId);
+                    return;
+                }
+            }
+
+            if (parse) {
+
                 parseProfile(profileId, false, function(profile) {
                     onParseProfileSuccess(profile, function(){
                         console.log('onParseProfileSuccess:callback');
@@ -321,7 +339,7 @@ function onParseProfileSuccess(profile, callback) {
         //saved
 
         if (profile.options.sharedImages) {
-            console.error('releaseImage:', profileId, 'already shared');
+            console.error('releaseImage:', profileId, 'already shared', profile.options.sharedImages);
             callback();
         } else {
             //releaseImage after save
