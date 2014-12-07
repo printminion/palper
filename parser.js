@@ -131,6 +131,7 @@ exports.parse = function(profileId, profileHTML) {
         id: profileId
         , options: {
             sharedImages: undefined
+            , _hasImages: false
         }
         , occupation: undefined
         , age: undefined
@@ -152,6 +153,12 @@ exports.parse = function(profileId, profileHTML) {
 
     if (profileHTML.match(/( Bilder verbergen )/)) {
         profile.options.sharedImages = true;
+    }
+
+    if (profileHTML.match(/(Kein Profilbild)/)) {
+        profile.options._hasImages = false;
+    } else {
+        profile.options._hasImages = true;
     }
 
 

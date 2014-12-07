@@ -200,10 +200,10 @@ function resyncProfles(useCache) {
 
 function releaseImages(profileIds, callback) {
     profileIds.forEvery(function (key, value) {
-        console.log('profile', value);
+        //console.log('profile', value);
         var url = value.split('?match=');
         var profileId = url[1];
-        console.log('profileId', profileId);
+        console.log('releaseImages', profileId);
 
         try {
             releaseImage(profileId, function (data) {
@@ -224,10 +224,10 @@ function releaseImages(profileIds, callback) {
 
 
 function parseProfiles(profileIds, reparse, callback) {
-    console.log('profiles', reparse, profileIds);
+    console.log('parseProfiles', reparse, profileIds);
 
     profileIds.forEvery(function (key, value) {
-        console.log('profile', value);
+        //console.log('profile', value);
         var url = value.split('?match=');
         var profileId = url[1];
         console.log('profileId', profileId);
@@ -236,12 +236,15 @@ function parseProfiles(profileIds, reparse, callback) {
 
         var parse = false;
         fs.exists(outputFilename, function (exists) {
+            parse = true;
+
+            console.log('exists', exists);
+
             if (exists) {
-                parse = false;
-                if (reparse) {
-                    parse = true;
+                if (reparse == true) {
                     console.info('reparse profile:' + profileId);
                 } else {
+                    parse = false;
                     console.info('skip profile:' + profileId);
                     return;
                 }
@@ -342,6 +345,14 @@ function onParseProfileSuccess(profile, callback) {
             console.error('releaseImage:', profileId, 'already shared', profile.options.sharedImages);
             callback();
         } else {
+
+
+            if (profile.options._hasImages != true) {
+                console.error('do not release image since no own images:', profileId);
+                callback();
+                return;
+            }
+
             //releaseImage after save
             releaseImage(profileId, function (data) {
                 if (data.hasOwnProperty('resultView')) {
@@ -636,9 +647,16 @@ function loadRemoteProfile(profileId, callbackSuccess) {
                 throw err;
             }
 
+            if (res.text.match(/(j_acegi_security_check)/)) {
+                //throw 'Please login';
+                console.log('please login');
+            }
             //check if logged off
             if (res.text.match(/(Kostenlos anmelden)/)) {
-                if (err) throw 'logged of';
+                throw 'Please login';
+            }
+            if (res.text.match(/(ps_invalid_chiffre)/)) {
+                //throw 'wrong profile:' + profileId;
             }
 
             callbackSuccess(res.text);
