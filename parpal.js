@@ -2,7 +2,7 @@
  * Created by cr on 15/11/14.
  */
 
-var profileParser = require("./parser.js");
+
 
 var superagent = require('superagent')
 // , TimeQueue = require('timequeue')
@@ -34,7 +34,7 @@ var args = process.argv.slice(2);
 
 if (args.length == 0) {
 
-    console.log('Usage: node parshipper.js <params>');
+    console.log('Usage: node palper.js <parner-provider-id> <params>');
     console.log('');
     console.log('Params:');
     console.log('   getnew <pagesCount:1> <reparse:true>');
@@ -48,7 +48,7 @@ if (args.length == 0) {
 nconf.argv().env();
 
 // Then load configuration from a designated file.
-nconf.file({file: 'config.json'});
+nconf.file({file: 'config.' + args[0] + '.json'});
 
 // Provide default values for settings not provided above.
 nconf.defaults({
@@ -57,11 +57,16 @@ nconf.defaults({
     }
 });
 
-//SET yOUR parship cookie here
+//SET YouOUR <YOUR_PARTNER_SITE_HERE> cookie here
 var SESSION_COOKIE = nconf.get('session:cookie');
 var PATH_CACHE = nconf.get('path:profileCache');
 var PATH_CACHE_HTML = nconf.get('path:htmlCache');
 var PATH_CACHE_PROFILE_IMAGES = nconf.get('path:imageCache');
+var PARTNER_PROVIDER_ID = nconf.get('provider:id');
+var PARTNER_PROVIDER_DOMAIN = nconf.get('provider:domain');
+
+var profileParser = require('./parser/parser.' + args[0] + '.js');
+profileParser.PARTNER_PROVIDER_DOMAIN = PARTNER_PROVIDER_DOMAIN;
 
 if (!SESSION_COOKIE) {
     process.stderr.write('SESSION_COOKIE is empty. Please define it in config.json\n');
@@ -70,19 +75,18 @@ if (!SESSION_COOKIE) {
 
 
 
-if (args[0] == 'getnew' && args[1]) {
-    parseNewProfiles(args[1], args[2] == 'true');
+if (args[1] == 'getnew' && args[2]) {
+    parseNewProfiles(args[2], args[3] == 'true');
 }
 
-if (args[0] == 'resync' && args[1]) {
-    resyncProfles(args[1] == 'true');
+if (args[1] == 'resync' && args[2]) {
+    resyncProfles(args[2] == 'true');
 }
 
-if (args[0] == 'parse' && args[1]) {
+if (args[1] == 'parse' && args[2]) {
 
-    parseProfile(args[1], false, function (profile) {
+    parseProfile(args[2], false, function (profile) {
         console.log('parseProfile:callback', profile);
-
     });
 
 }
@@ -470,13 +474,13 @@ function releaseImage(pageId, callback) {
     console.log('releaseImage', pageId);
 
     superagent
-        .post('https://www.parship.de/profile/imagerelease/release')
+        .post('https://' + PARTNER_PROVIDER_DOMAIN + '/profile/imagerelease/release')
         .send({partnerId: pageId, body: ''})
         .set('Accept-Encoding', 'gzip,deflate,sdch')
         .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')
         .set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36')
         .set('Accept', 'text/javascript, text/html, application/xml, text/xml, */*')
-        .set('Referer', 'https://www.parship.de/partner/factfilepartner?match=' + pageId)
+        .set('Referer', 'https://' + PARTNER_PROVIDER_DOMAIN + '/partner/factfilepartner?match=' + pageId)
 
         .set('Cookie', SESSION_COOKIE)
         .end(function (err, res) {
@@ -513,12 +517,12 @@ function crawlProfilePage(pageId, callback) {
     console.log('crawlProfilePage', pageId);
 
     superagent
-        .get("https://www.parship.de/lists/partnersuggestions?sortBy=BY_NEWEST_FIRST&page=" + pageId)
+        .get("https://' + PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_NEWEST_FIRST&page=" + pageId)
         .set('Accept-Encoding', 'gzip,deflate,sdch')
         .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')
         .set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36')
         .set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8')
-        .set('Referer', 'https://www.parship.de/lists/partnersuggestions?sortBy=BY_DISTANCE')
+        .set('Referer', 'https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_DISTANCE')
 
         .set('Cookie', SESSION_COOKIE)
         .end(function (err, res) {
@@ -533,7 +537,7 @@ function crawlProfilePage(pageId, callback) {
             }
 
 
-            //https://www.parship.de/partner/factfilepartner?match=PS8MN5DX
+            //https://<YOUR_PARTNER_SITE_HERE>/partner/factfilepartner?match=PS8MN5DX
             var regex = /(\/partner\/factfilepartner\?match=[^"]*)/g;
             var matches = res.text.match(regex);
 
@@ -542,7 +546,7 @@ function crawlProfilePage(pageId, callback) {
             if (matches) {
                 callback(matches.getUnique());
             } else {
-                throw 'no profiles found. Page:' + pageId + ' Url: https://www.parship.de/lists/partnersuggestions?sortBy=BY_NEWEST_FIRST&page=' + pageId;
+                throw 'no profiles found. Page:' + pageId + ' Url: https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_NEWEST_FIRST&page=' + pageId;
             }
         });
 }
@@ -633,12 +637,12 @@ function loadRemoteProfile(profileId, callbackSuccess) {
     console.log('loadRemoteProfile', profileId);
 
     superagent
-        .get("https://www.parship.de/partner/factfilepartner?match=" + profileId)
+        .get("https://' + PROVIDER_DOMAIN + '/partner/factfilepartner?match=" + profileId)
         .set('Accept-Encoding', 'gzip,deflate,sdch')
         .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')
         .set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36')
         .set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8')
-        .set('Referer', 'https://www.parship.de/lists/partnersuggestions?sortBy=BY_DISTANCE')
+        .set('Referer', 'https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_DISTANCE')
 
         .set('Cookie', SESSION_COOKIE)
         .end(function (err, res) {
@@ -668,12 +672,12 @@ function loadRemoteProfileImages(profileId, callbackSuccess) {
     console.log('loadRemoteProfileImages', profileId);
 
     superagent
-        .get("https://www.parship.de/profile/partnerslideshow?userid=" + profileId + "&ajaxContent=true")
+        .get("https://' + PROVIDER_DOMAIN + '/profile/partnerslideshow?userid=" + profileId + "&ajaxContent=true")
         .set('Accept-Encoding', 'gzip,deflate,sdch')
         .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')
         .set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36')
         .set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8')
-        .set('Referer', 'https://www.parship.de/partner/factfilepartner?match=' + profileId)
+        .set('Referer', 'https://' + PARTNER_PROVIDER_DOMAIN + '/partner/factfilepartner?match=' + profileId)
 
         .set('Cookie', SESSION_COOKIE)
         .end(function (err, res) {

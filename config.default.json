@@ -1,4 +1,8 @@
 {
+  "provider": {
+    "id": "<PARTNER_PROVIDER_ID>",
+    "domain": "<PARTNER_PROVIDER_DOMAIN>"
+  },
   "session": {
     "cookie": null
   },

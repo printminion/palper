@@ -12,17 +12,19 @@ var theAccount = {
     "persistentLogin": "true"
 };
 
+var PARTNER_PROVIDER_DOMAIN = null;
+
 exports.login = function (request, done) {
 
     //function(user, pass, callbackSuccess, callbackFailure) {
-        //https://www.parship.de/j_acegi_security_check
+        //https://<YOUR_PARTNER_SITE_HERE>/j_acegi_security_check
         //j_username
         //j_password
         //persistentLogin=true
 
     console.log('login');
     request
-        .post('https://www.parship.de/j_acegi_security_check')
+        .post('https://' + PARTNER_PROVIDER_DOMAIN + '/j_acegi_security_check')
         .send(theAccount)
         .end(function (err, res) {
             if (err) {

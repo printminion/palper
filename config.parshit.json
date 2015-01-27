@@ -1,0 +1,14 @@
+{
+  "provider": {
+    "id": "parshit",
+    "domain": "www.parship.de"
+  },
+  "session": {
+    "cookie": "NVI_FC=ownerID%3A1_registered_TS%3A1416044747; PERSIST_AUTH_Parship=e0a26fcd-2090-4c82-ad86-2554875d7e41; PDC=%7B%22RGID%22%3A84%2C%22ss_d_ml%22%3A%225D7E44AD8A84C2DB%22%7D; NVI_LC=ownerID%3A1_TS%3A1421230931; ps_session=!iXeoQhQUTrX43eHUrvh2JQPognKS8I4lZx8ib19XPIdJxWXXsbbzDRr/Hv35wI/Vxm8r6miapRJcYA==; JSESSIONID=5408CB2186B240740EA3B8F88492D97A; SdTestSessionId=rzpdkmesfcnvxbwtmgdnicgwrmepli; NVI_LC2=ownerID%3A1_TS%3A1421612687; __utma=1.1934095958.1416133935.1421536336.1421612642.139; __utmb=1.13.10.1421612642; __utmc=1; __utmz=1.1418157741.1.1.utmcsr=Affiliate|utmccn=Relaunch2010|utmcmd=zanox; __utmv=1.web%2Fgeneric%2FHETERO|2=Chiffre=PSN2LKLH=1"
+  },
+  "path": {
+    "profileCache": "./.cache",
+    "imageCache": "./.cache/.images",
+    "htmlCache": "./.cacheHtml"
+  }
+}
