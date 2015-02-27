@@ -2,7 +2,8 @@
  * Created by cr on 28/11/14.
  */
 
-htmlparser = require("htmlparser2");
+'use strict';
+var htmlparser = require("htmlparser2");
 
 var superagent = require('superagent');
 var agent = superagent.agent();
@@ -62,12 +63,12 @@ exports.parseImages = function (profile, html) {
 
     if (html.match(/(Der Kontakt wurde beendet)/)) {
         //throw 'you are blocked by ' + profileId;
-        console.error('you are blocked by ' + profileId);
+        console.error('you are blocked by ', profile);
         return null;
     }
     if (html.match(/Dieses Profil ist derzeit nicht aktiv/)) {
         //throw 'you are blocked by ' + profileId;
-        console.error('not active ' + profileId);
+        console.error('not active ', profile);
         return null;
     }
 
@@ -157,13 +158,7 @@ exports.parse = function(profileId, profileHTML) {
         profile.options.sharedImages = true;
     }
 
-    if (profileHTML.match(/(Kein Profilbild)/)) {
-        profile.options._hasImages = false;
-    } else {
-        profile.options._hasImages = true;
-    }
-
-
+    profile.options._hasImages = !profileHTML.match(/(Kein Profilbild)/);
 
     var nodeValue = undefined;
     var currentItemId = '';

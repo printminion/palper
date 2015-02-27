@@ -2,7 +2,7 @@
  * Created by cr on 15/11/14.
  */
 
-
+'use strict';
 
 var superagent = require('superagent')
 // , TimeQueue = require('timequeue')
@@ -18,7 +18,7 @@ var superagent = require('superagent')
 require('forevery');
 
 
-d = domain.create();
+var d = domain.create();
 
 /*
 profileParser.login(superagent, function(data){
@@ -69,7 +69,7 @@ var profileParser = require('./parser/parser.' + args[0] + '.js');
 profileParser.PARTNER_PROVIDER_DOMAIN = PARTNER_PROVIDER_DOMAIN;
 
 if (!SESSION_COOKIE) {
-    process.stderr.write('SESSION_COOKIE is empty. Please define it in config.json\n');
+    process.stderr.write('SESSION_COOKIE is empty. Please define it in config.' + args[0] + '.json\n');
     process.exit(1);
 }
 
@@ -517,7 +517,9 @@ function crawlProfilePage(pageId, callback) {
     console.log('crawlProfilePage', pageId);
 
     superagent
-        .get("https://' + PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_NEWEST_FIRST&page=" + pageId)
+        //.get('https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_NEWEST_FIRST&page=' + pageId)
+        .get('https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_ONLINE_STATUS&page=' + pageId)
+        //.get('https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_MATCHING_POINTS&page=' + pageId)
         .set('Accept-Encoding', 'gzip,deflate,sdch')
         .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')
         .set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36')
@@ -637,7 +639,7 @@ function loadRemoteProfile(profileId, callbackSuccess) {
     console.log('loadRemoteProfile', profileId);
 
     superagent
-        .get("https://' + PROVIDER_DOMAIN + '/partner/factfilepartner?match=" + profileId)
+        .get('https://' + PARTNER_PROVIDER_DOMAIN + '/partner/factfilepartner?match=' + profileId)
         .set('Accept-Encoding', 'gzip,deflate,sdch')
         .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')
         .set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36')
@@ -672,7 +674,7 @@ function loadRemoteProfileImages(profileId, callbackSuccess) {
     console.log('loadRemoteProfileImages', profileId);
 
     superagent
-        .get("https://' + PROVIDER_DOMAIN + '/profile/partnerslideshow?userid=" + profileId + "&ajaxContent=true")
+        .get('https://' + PARTNER_PROVIDER_DOMAIN + '/profile/partnerslideshow?userid=' + profileId + '&ajaxContent=true')
         .set('Accept-Encoding', 'gzip,deflate,sdch')
         .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')
         .set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36')
