@@ -74,21 +74,37 @@ if (!SESSION_COOKIE) {
 }
 
 
+switch (args[1]) {
+    case 'getnew':
+        if (!args[2]) {
+            process.stderr.write('Missing parameter:\n');
+            process.exit(1);
+        }
 
-if (args[1] == 'getnew' && args[2]) {
-    parseNewProfiles(args[2], args[3] == 'true');
-}
+        parseNewProfiles(args[2], args[3] == 'true');
 
-if (args[1] == 'resync' && args[2]) {
-    resyncProfles(args[2] == 'true');
-}
+        break;
+    case 'resync':
 
-if (args[1] == 'parse' && args[2]) {
+        resyncProfles(args[2] == 'true');
 
-    parseProfile(args[2], false, function (profile) {
-        console.log('parseProfile:callback', profile);
-    });
+        break;
+    case 'parse':
 
+        if (!args[2]) {
+            process.stderr.write('Missing parameter:\n');
+            process.exit(1);
+        }
+
+        parseProfile(args[2], false, function (profile) {
+            console.log('parseProfile:callback', profile);
+        });
+
+        break;
+    default:
+        process.stderr.write('Unknown action:' + args[2] + '\n');
+        process.exit(1);
+        break;
 }
 
 function parseNewProfiles(pagesCount, reparse) {
@@ -274,6 +290,7 @@ function downloadProfileImages(profile, callback) {
 
     var download = function (uri, filename, callback) {
         request.head(uri, function (err, res, body) {
+            console.log('headers:', res.headers);
             console.log('content-type:', res.headers['content-type']);
             console.log('content-length:', res.headers['content-length']);
 
@@ -517,8 +534,8 @@ function crawlProfilePage(pageId, callback) {
     console.log('crawlProfilePage', pageId);
 
     superagent
-        //.get('https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_NEWEST_FIRST&page=' + pageId)
-        .get('https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_ONLINE_STATUS&page=' + pageId)
+        .get('https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_NEWEST_FIRST&page=' + pageId)
+        //.get('https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_ONLINE_STATUS&page=' + pageId)
         //.get('https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_MATCHING_POINTS&page=' + pageId)
         .set('Accept-Encoding', 'gzip,deflate,sdch')
         .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')

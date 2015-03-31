@@ -15,6 +15,27 @@ var theAccount = {
 
 var PARTNER_PROVIDER_DOMAIN = null;
 
+exports.ping = function (request, done) {
+
+    //function(user, pass, callbackSuccess, callbackFailure) {
+    //https://<YOUR_PARTNER_SITE_HERE>/j_acegi_security_check
+    //j_username
+    //j_password
+    //persistentLogin=true
+
+    console.log('login');
+    request
+        .post('https://' + PARTNER_PROVIDER_DOMAIN + '/j_acegi_security_check')
+        .send(theAccount)
+        .end(function (err, res) {
+            if (err) {
+                throw err;
+            }
+            agent.saveCookies(res);
+            done(agent);
+        });
+};
+
 exports.login = function (request, done) {
 
     //function(user, pass, callbackSuccess, callbackFailure) {
