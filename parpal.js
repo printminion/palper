@@ -376,6 +376,12 @@ function onParseProfileSuccess(profile, callback) {
 
             //releaseImage after save
             releaseImage(profileId, function (data) {
+                if (!data) {
+                    console.error('releaseImage:', profileId, 'got no data');
+                    callback();
+                }
+
+
                 if (data.hasOwnProperty('resultView')) {
                     console.log('releaseImage:', data.resultView.partnerChiffre, data.resultView.success);
                 } else {
