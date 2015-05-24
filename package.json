@@ -13,6 +13,7 @@
       "request": "*",
       "crypto": "*",
       "mkdirp": "*",
+      "bluebird": "*",
       "nconf": "*"
   }
 }

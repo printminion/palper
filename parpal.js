@@ -20,11 +20,6 @@ require('forevery');
 
 var d = domain.create();
 
-/*
-profileParser.login(superagent, function(data){
-    console.log('login', data);
-});
-*/
 
 d.on('error', function (err) {
     console.error(err);
@@ -32,8 +27,7 @@ d.on('error', function (err) {
 
 var args = process.argv.slice(2);
 
-if (args.length == 0) {
-
+function showUsage() {
     console.log('Usage: node palper.js <parner-provider-id> <params>');
     console.log('');
     console.log('Params:');
@@ -41,14 +35,20 @@ if (args.length == 0) {
     console.log('   resync <useCache:true>');
     console.log('   parse <profileId>');
 
+}
+
+if (args.length == 0) {
+    showUsage();
     process.exit(1);
 }
 
 // First consider commandline arguments and environment variables, respectively.
 nconf.argv().env();
 
+var CONFIG_FILE = 'config.' + args[0] + '.json';
+
 // Then load configuration from a designated file.
-nconf.file({file: 'config.' + args[0] + '.json'});
+nconf.file({file: CONFIG_FILE});
 
 // Provide default values for settings not provided above.
 nconf.defaults({
@@ -59,19 +59,32 @@ nconf.defaults({
 
 //SET YouOUR <YOUR_PARTNER_SITE_HERE> cookie here
 var SESSION_COOKIE = nconf.get('session:cookie');
+
 var PATH_CACHE = nconf.get('path:profileCache');
 var PATH_CACHE_HTML = nconf.get('path:htmlCache');
 var PATH_CACHE_PROFILE_IMAGES = nconf.get('path:imageCache');
+
 var PARTNER_PROVIDER_ID = nconf.get('provider:id');
 var PARTNER_PROVIDER_DOMAIN = nconf.get('provider:domain');
+var PROVIDER_USER = nconf.get('provider:user');
+var PROVIDER_PASS = nconf.get('provider:pass');
+
+var USER_AGENT = nconf.get('superagent:user-agent');
 
 var profileParser = require('./parser/parser.' + args[0] + '.js');
-profileParser.PARTNER_PROVIDER_DOMAIN = PARTNER_PROVIDER_DOMAIN;
+
+profileParser.setProviderDomain(PARTNER_PROVIDER_DOMAIN);
+console.log('PARTNER_PROVIDER_DOMAIN', PARTNER_PROVIDER_DOMAIN);
 
 if (!SESSION_COOKIE) {
     process.stderr.write('SESSION_COOKIE is empty. Please define it in config.' + args[0] + '.json\n');
     process.exit(1);
 }
+
+var headers = {
+    'User-Agent' : USER_AGENT,
+    'Cookie' : SESSION_COOKIE
+};
 
 
 switch (args[1]) {
@@ -102,10 +115,45 @@ switch (args[1]) {
 
         break;
     default:
-        process.stderr.write('Unknown action:' + args[2] + '\n');
-        process.exit(1);
+        //process.stderr.write('Unknown action:' + args[2] + '\n');
+        //showUsage();
+        ping();
+        //process.exit(1);
         break;
 }
+
+
+
+
+function ping() {
+    profileParser.ping(superagent, headers)
+        .then(function (users) {
+            // Do stuff with users
+            console.log('ping:success', users);
+        })
+        .catch(function (err) {
+            // handle errors
+            console.error('ping:catch', err);
+            //console.log('superagent:headers', headers);
+            login();
+        });
+}
+
+
+function login() {
+    profileParser.login(superagent, headers, PROVIDER_USER, PROVIDER_PASS)
+        .then(function (users) {
+            // Do stuff with users
+            console.log('login:success', users);
+            console.log('login:headers', headers);
+        })
+        .catch(function (err) {
+            // handle errors
+            console.error('login:catch', err);
+        });
+}
+
+
 
 function parseNewProfiles(pagesCount, reparse) {
     //var pagesCount = 1;
@@ -171,7 +219,7 @@ function resyncProfles(useCache) {
 
                 var file = files[fileNr];
 
-                if (file==undefined) {
+                if (file == undefined) {
                     callback();
                 }
 
@@ -272,8 +320,8 @@ function parseProfiles(profileIds, reparse, callback) {
 
             if (parse) {
 
-                parseProfile(profileId, false, function(profile) {
-                    onParseProfileSuccess(profile, function(){
+                parseProfile(profileId, false, function (profile) {
+                    onParseProfileSuccess(profile, function () {
                         console.log('onParseProfileSuccess:callback');
                     })
                 });
@@ -298,7 +346,7 @@ function downloadProfileImages(profile, callback) {
         });
     };
 
-    var getMd5 = function(path, callback) {
+    var getMd5 = function (path, callback) {
         var fs = require('fs');
         var crypto = require('crypto');
 
@@ -307,7 +355,7 @@ function downloadProfileImages(profile, callback) {
         var hash = crypto.createHash('sha1');
         hash.setEncoding('hex');
 
-        fd.on('end', function() {
+        fd.on('end', function () {
             hash.end();
             callback(hash.read());
         });
@@ -325,14 +373,14 @@ function downloadProfileImages(profile, callback) {
 
         download(fileUrl, targetPath, function () {
             console.log('done');
-            getMd5(targetPath, function(hash) {
+            getMd5(targetPath, function (hash) {
                 console.log('hash', hash);
 
 
                 var profileImageCacheDir = PATH_CACHE_PROFILE_IMAGES + '/' + profile.id + '/';
                 var newPath = profileImageCacheDir + profile.id + '_' + hash + '.jpg';
 
-                mkdirp(profileImageCacheDir, function(err) {
+                mkdirp(profileImageCacheDir, function (err) {
 
                     // path was created unless there was error
 
@@ -341,7 +389,7 @@ function downloadProfileImages(profile, callback) {
                     console.log('moving from ', targetPath);
                     console.log('moving to ', newPath);
 
-                    fs.rename(targetPath, newPath, function() {
+                    fs.rename(targetPath, newPath, function () {
                         console.log('moved to new destination');
                     });
                 });
@@ -501,7 +549,7 @@ function releaseImage(pageId, callback) {
         .send({partnerId: pageId, body: ''})
         .set('Accept-Encoding', 'gzip,deflate,sdch')
         .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')
-        .set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36')
+        .set('User-Agent', USER_AGENT)
         .set('Accept', 'text/javascript, text/html, application/xml, text/xml, */*')
         .set('Referer', 'https://' + PARTNER_PROVIDER_DOMAIN + '/partner/factfilepartner?match=' + pageId)
 
@@ -545,7 +593,7 @@ function crawlProfilePage(pageId, callback) {
         //.get('https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_MATCHING_POINTS&page=' + pageId)
         .set('Accept-Encoding', 'gzip,deflate,sdch')
         .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')
-        .set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36')
+        .set('User-Agent', USER_AGENT)
         .set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8')
         .set('Referer', 'https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_DISTANCE')
 
@@ -613,12 +661,12 @@ function parseProfile(profileId, useCache, callback) {
 
                 profile = profileParser.parse(profileId, html);
 
-                if(profile == null) {
+                if (profile == null) {
                     callback(null);
                     return;
                 }
 
-                saveProfile(profile, function(){
+                saveProfile(profile, function () {
                     console.log('updated profile');
                 });
 
@@ -665,7 +713,7 @@ function loadRemoteProfile(profileId, callbackSuccess) {
         .get('https://' + PARTNER_PROVIDER_DOMAIN + '/partner/factfilepartner?match=' + profileId)
         .set('Accept-Encoding', 'gzip,deflate,sdch')
         .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')
-        .set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36')
+        .set('User-Agent', USER_AGENT)
         .set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8')
         .set('Referer', 'https://' + PARTNER_PROVIDER_DOMAIN + '/lists/partnersuggestions?sortBy=BY_DISTANCE')
 
@@ -700,7 +748,7 @@ function loadRemoteProfileImages(profileId, callbackSuccess) {
         .get('https://' + PARTNER_PROVIDER_DOMAIN + '/profile/partnerslideshow?userid=' + profileId + '&ajaxContent=true')
         .set('Accept-Encoding', 'gzip,deflate,sdch')
         .set('Accept-Language', 'en-US,en;q=0.8,de;q=0.6,ru;q=0.4,uk;q=0.2,es;q=0.2,ro;q=0.2,nl;q=0.2')
-        .set('User-Agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 Safari/537.36')
+        .set('User-Agent', USER_AGENT)
         .set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8')
         .set('Referer', 'https://' + PARTNER_PROVIDER_DOMAIN + '/partner/factfilepartner?match=' + profileId)
 

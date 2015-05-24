@@ -1,7 +1,12 @@
 {
   "provider": {
     "id": "<PARTNER_PROVIDER_ID>",
-    "domain": "<PARTNER_PROVIDER_DOMAIN>"
+    "domain": "<PARTNER_PROVIDER_DOMAIN>",
+    "user" : "<SET_YOUR_USER_HERE>",
+    "pass" : "<SET_YOUR_PASS_HERE>"
+  },
+  "superagent": {
+    "user-agent" : "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.90 Safari/537.36"
   },
   "session": {
     "cookie": null
