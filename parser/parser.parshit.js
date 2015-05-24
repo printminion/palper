@@ -3,6 +3,7 @@
  */
 
 'use strict';
+var Promise = require('bluebird');
 var htmlparser = require("htmlparser2");
 
 var superagent = require('superagent');
@@ -14,8 +15,45 @@ var theAccount = {
 };
 
 var PARTNER_PROVIDER_DOMAIN = null;
+exports.setProviderDomain = function (host) {
+    PARTNER_PROVIDER_DOMAIN = host;
+};
 
-exports.ping = function (request, done) {
+exports.ping = function (superagent, headers) {
+
+    return new Promise(function (resolve, reject) {
+
+        var url = 'https://' + PARTNER_PROVIDER_DOMAIN + '/j_acegi_security_check';
+        console.log('ping', url);
+        superagent
+            .get(url)
+            .set('User-Agent', headers['User-Agent'])
+            .set('Cookie', headers['Cookie'])
+            .set('Referer', 'https://' + PARTNER_PROVIDER_DOMAIN)
+            .end(function (err, res) {
+                //console.log('res', res);
+                //console.log('err', err);
+                //console.log('superagent:headers', res.headers);
+                headers['Cookie'] = res.headers['set-cookie'].join(';');
+
+                if (err) {
+                    //throw err;
+                    return reject(err);
+                }
+
+                if (res.text.match(/(j_acegi_security_check)/)) {
+                    //throw 'Please login';
+                    return reject('please login');
+                }
+
+                return resolve(res);
+
+            });
+
+    });
+};
+
+exports.login = function (superagent, headers, user, pass) {
 
     //function(user, pass, callbackSuccess, callbackFailure) {
     //https://<YOUR_PARTNER_SITE_HERE>/j_acegi_security_check
@@ -23,38 +61,53 @@ exports.ping = function (request, done) {
     //j_password
     //persistentLogin=true
 
-    console.log('login');
-    request
-        .post('https://' + PARTNER_PROVIDER_DOMAIN + '/j_acegi_security_check')
-        .send(theAccount)
-        .end(function (err, res) {
-            if (err) {
-                throw err;
-            }
-            agent.saveCookies(res);
-            done(agent);
-        });
-};
+    return new Promise(function (resolve, reject) {
 
-exports.login = function (request, done) {
+        var url = 'https://' + PARTNER_PROVIDER_DOMAIN + '/j_acegi_security_check';
+        //var url = 'http://localhost:8000/any_url';
+        console.log('login', url);
 
-    //function(user, pass, callbackSuccess, callbackFailure) {
-        //https://<YOUR_PARTNER_SITE_HERE>/j_acegi_security_check
-        //j_username
-        //j_password
-        //persistentLogin=true
+        superagent
+            .post(url)
+            //.redirects(3)
+            .type('form')
+            .set('User-Agent', headers['User-Agent'])
+            .set('Cookie', headers['Cookie'])
+            .set('Referer', 'https://' + PARTNER_PROVIDER_DOMAIN)
 
-    console.log('login');
-    request
-        .post('https://' + PARTNER_PROVIDER_DOMAIN + '/j_acegi_security_check')
-        .send(theAccount)
-        .end(function (err, res) {
-            if (err) {
-                throw err;
-            }
-            agent.saveCookies(res);
-            done(agent);
-        });
+            .send({
+                j_username: user,
+                j_password: pass,
+                persistentLogin: true
+            })
+            .end(function (err, res) {
+
+                console.log('login', res);
+                console.log('login:headers', res.headers);
+                console.log('login:text', res.text);
+
+                if (err) {
+                    //throw err;
+                    return reject(err);
+                }
+
+                if (res.redirects.length) {
+
+                    if (res.redirects[0].indexOf('login_error=1'))
+                    //throw err;
+                    return reject('login error');
+                }
+
+
+                headers['Cookie'] = res.headers['set-cookie'].join(';');
+
+
+
+                return resolve(res);
+            });
+
+    });
+
 };
 
 /**
@@ -69,7 +122,7 @@ exports.parseImages = function (profile, html) {
 
     html = '' + html;
 
-    if(profile == undefined) {
+    if (profile == undefined) {
         throw 'please provide profile object';
     }
 
@@ -94,17 +147,15 @@ exports.parseImages = function (profile, html) {
     }
 
 
-
-
     var parser = new htmlparser.Parser({
-        onopentag: function(name, attribs){
+        onopentag: function (name, attribs) {
             if (name === "span") {
 
                 if (attribs.class === "ps_photo ps_photo_popItUp") {
 
                     //var imageUrl = attribs.style.backgroundImage.slice(4, -1);
                     var imageUrl = '' + attribs.style;//.slice(4, -1);
-                    imageUrl = imageUrl.replace('background-image: url(','').replace(');','');
+                    imageUrl = imageUrl.replace('background-image: url(', '').replace(');', '');
                     console.log('imageUrl', imageUrl);
 
                     if (imageUrl.match(/unblurred/)) {
@@ -117,9 +168,9 @@ exports.parseImages = function (profile, html) {
             }
 
         },
-        ontext: function(text){
+        ontext: function (text) {
         },
-        onclosetag: function(tagname){
+        onclosetag: function (tagname) {
 
         }
     });
@@ -132,7 +183,7 @@ exports.parseImages = function (profile, html) {
 
 };
 
-exports.parse = function(profileId, profileHTML) {
+exports.parse = function (profileId, profileHTML) {
 
     profileHTML = '' + profileHTML;
 
@@ -187,7 +238,7 @@ exports.parse = function(profileId, profileHTML) {
     var partnerProfilePic = false;
 
     var parser = new htmlparser.Parser({
-        onopentag: function(name, attribs){
+        onopentag: function (name, attribs) {
             if (name === "span") {
 
                 if (attribs.id === "occupation") {
@@ -288,14 +339,14 @@ exports.parse = function(profileId, profileHTML) {
 
             }
         },
-        ontext: function(text){
+        ontext: function (text) {
             //if (currentItemId == 'education') {
             //    console.log('ontext', startItem, currentItemId, text);
             //}
             nodeValue = text;
         },
-        onclosetag: function(tagname){
-            if(tagname === "span") {
+        onclosetag: function (tagname) {
+            if (tagname === "span") {
 
                 if (profile.occupation === true) {
                     profile.occupation = nodeValue;
@@ -327,7 +378,7 @@ exports.parse = function(profileId, profileHTML) {
 
             }
 
-            if(tagname === "p") {
+            if (tagname === "p") {
 
                 if (profile.distance === true) {
                     profile.distance = nodeValue;
@@ -342,7 +393,7 @@ exports.parse = function(profileId, profileHTML) {
                 }
             }
 
-            if(tagname === "strong") {
+            if (tagname === "strong") {
 
                 if (profile.lastLogin === true) {
                     profile.lastLogin = nodeValue;
@@ -351,7 +402,7 @@ exports.parse = function(profileId, profileHTML) {
                 }
             }
 
-            if(tagname === "div") {
+            if (tagname === "div") {
 
                 if (profile.matching === true) {
                     profile.matching = nodeValue;
@@ -388,9 +439,5 @@ exports.parse = function(profileId, profileHTML) {
 
 
     return profile;
-};
-
-exports.ping = function(callbackSuccess, callbackFailure) {
-
 };
 
