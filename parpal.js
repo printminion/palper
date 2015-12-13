@@ -116,9 +116,11 @@ switch (args[1]) {
         break;
     default:
         //process.stderr.write('Unknown action:' + args[2] + '\n');
-        //showUsage();
-        ping();
-        //process.exit(1);
+        showUsage();
+        //ping();
+
+
+        process.exit(1);
         break;
 }
 

@@ -1,7 +1,3 @@
-/**
- * Created by cr on 28/11/14.
- */
-
 'use strict';
 var Promise = require('bluebird');
 var htmlparser = require("htmlparser2");
@@ -241,18 +237,18 @@ exports.parse = function (profileId, profileHTML) {
         onopentag: function (name, attribs) {
             if (name === "span") {
 
-                if (attribs.id === "occupation") {
+                if (attribs.class === "occupation") {
                     profile.occupation = true;
                     return true;
                 }
 
-                if (attribs.id === "ageText") {
+                if (attribs.class === "age") {
                     profile.age = true;
                     return true;
                 }
 
-                if (attribs.id === "ps_viewHeight") {
-                    profile.height = true;
+                if (attribs.class === "theDate") {
+                    profile.lastLogin = true;
                     return true;
                 }
 
@@ -284,13 +280,15 @@ exports.parse = function (profileId, profileHTML) {
                     profile.distance = true;
                     return true;
                 }
-                if (attribs.class === "ps_lastLogin") {
-                    profile.lastLogin = true;
-                    return true;
-                }
+
             }
 
             if (name === "li") {
+
+                if (attribs.id === "bodytype") {
+                    profile.height = true;
+                    return true;
+                }
 
                 if (attribs.id === "ps_viewMaritalStatus") {
                     currentItemId = 'maritalStatus';
@@ -305,7 +303,7 @@ exports.parse = function (profileId, profileHTML) {
                     currentItemId = 'education';
                     return true;
                 }
-                if (attribs.id === "ps_viewSmoker") {
+                if (attribs.class === "smoker") {
                     currentItemId = 'smoker';
                     return true;
                 }

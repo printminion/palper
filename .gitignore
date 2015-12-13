@@ -32,3 +32,4 @@ node_modules
 .cache
 .cacheHtml
 config.*.json
+.Rhistory
